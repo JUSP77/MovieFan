@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jhta.moviefan.dao.CustomerDao">
+
+	<resultMap type="com.jhta.moviefan.vo.Customer" id="CustomerResultMap">
+		<id 	column="customer_no" 			property="no" />
+		<result column="grade_code" 			property="gradeCode" />
+		<result column="customer_id" 			property="id"/>
+		<result column="customer_password"		property="password"/>
+		<result column="customer_phone_number" 	property="phoneNumber"/>
+		<result column="customer_email" 		property="email"/>
+		<result column="customer_gender" 		property="gender"/>
+		<result column="customer_birthday" 		property="birthday"/>
+		<result column="customer_total_point" 	property="totalPoint"/>
+		<result column="is_admin" 				property="isAdmin"/>
+		<result column="customer_name" 			property="name"/>
+		<result column="customer_nickname" 		property="nickName"/>
+		<result column="is_banned" 				property="isBanned"/>
+		<result column="customer_login_type" 	property="loginType"/>
+		<result column="customer_created_date" 	property="createdDate"/>
+		<result column="is_withdrawal" 			property="isWithdrawal"/>
+		<result column="customer_updated_date" 	property="updatedDate"/>
+	</resultMap>
+
+	<select id="getCustomerByNo" parameterType="int" resultMap="CustomerResultMap">
+		select *
+		from customer
+		where customer_no = #{no}
+	</select>
+	
+	<select id="getCustomerById" parameterType="String" resultMap="CustomerResultMap">
+		select *
+		from customer
+		where customer_id = #{id}
+	</select>
+	
+	<select id="getCustomerByEmail" parameterType="String" resultMap="CustomerResultMap">
+		select *
+		from customer
+		where customer_email = #{email}
+	</select>
+	
+	<select id="getCustomerByPhoneNumber" parameterType="String" resultMap="CustomerResultMap">
+		select *
+		from customer
+		where customer_phone_number = #{phoneNumber}
+	</select>
+	
+	<select id="getCustomerByNickName" parameterType="String" resultMap="CustomerResultMap">
+		select *
+		from customer
+		where customer_nickname = #{nickName}
+	</select>
+	
+	<select id="getAllCustomerMovieWishListByCustomerNo" parameterType="int" resultType="com.jhta.moviefan.vo.CustomerMovieWishList">
+		select 
+			movie_no	as	movieNo,
+			customer_no	as	customerNo
+		from customer_movie_wishlist
+		where customer_no = #{customerNo}
+	</select>
+	
+	<select id="countCustomerMovieWishListByMovieNo" parameterType="int" resultType="int">
+		select count(*) from CUSTOMER_MOVIE_WISHLIST
+		where MOVIE_NO = #{value}
+	</select>
+
+	<insert id="insertCustomer" parameterType="com.jhta.moviefan.vo.Customer">
+		<selectKey keyProperty="no" resultType="int" order="BEFORE">
+			select customer_seq.nextval
+			from dual
+		</selectKey>
+		insert into customer
+		(customer_no, customer_id, customer_password, customer_phone_number, customer_login_type,
+		customer_email, customer_gender, customer_birthday, customer_name, customer_nickname)
+		values
+		(#{no}, #{id}, #{password}, #{phoneNumber}, #{loginType}, 
+		#{email}, #{gender}, #{birthday}, #{name}, #{nickName})
+	</insert>
+	
+	<update id="updateCustomer" parameterType="com.jhta.moviefan.vo.Customer">
+		update customer
+		set
+			customer_password = #{password},
+			customer_nickname = #{nickName},
+			customer_email = #{email},
+			customer_phone_number = #{phoneNumber},
+			customer_gender = #{gender},
+			customer_birthday = #{birthday},
+			customer_updated_date = sysdate
+		where 
+			customer_no = #{no}
+	</update>
+	
+	<update id="deleteCustomerByNo" parameterType="int">
+		update customer
+		set
+			is_withdrawal = 'Y'
+		where
+			customer_no = #{customerNo}
+	</update>
+	
+	<select id="getCustomerMovieWishListTotalRows" parameterType="com.jhta.moviefan.form.CriteriaMyAccount" resultType="int">
+		select count(*)
+		from 
+		    customer_movie_wishlist	cmw,
+		    movie 					m,
+		    movie_actor				ma,
+		    actor					a
+		<where>	
+				m.movie_no = cmw.movie_no
+			and m.movie_no = ma.movie_no(+)
+			and ma.actor_no = a.actor_no(+)
+			and cmw.customer_no = #{customerNo}
+			and (ma.actor_priority = 0 or ma.actor_priority is null)
+			<if test="opt != null and value != null">
+				<choose>
+					<when test="opt == 'title'">
+						and m.movie_title like '%' || #{value} || '%'
+					</when>
+					<when test="opt == 'actor'">
+						and a.actor_name like '%' || #{value} || '%'
+					</when>
+				</choose>
+			</if>
+		</where>
+	</select>
+	
+	<select id="searchCustomerMovieWishList" parameterType="com.jhta.moviefan.form.CriteriaMyAccount" resultType="com.jhta.moviefan.vo.CustomerMovieWishList">
+		select 
+			*			
+		from (
+			select cmw.customer_no as customerNo, 
+			cmw.movie_no as movieNo, 
+			row_number() over (order by cmw.movie_no desc) rn
+			from 
+		        customer_movie_wishlist cmw,
+		        movie 				 	m,
+		        movie_actor			 	ma,
+		        actor				 	a
+			<where>
+				m.movie_no = cmw.movie_no
+			and m.movie_no = ma.movie_no(+)
+			and ma.actor_no = a.actor_no(+)
+			and cmw.customer_no = #{customerNo}
+			and (ma.actor_priority = 0 or ma.actor_priority is null)
+				<if test="opt != null and value != null">
+					<choose>
+						<when test="opt == 'title'">
+							and m.movie_title like '%' || #{value} || '%'
+						</when>
+						<when test="opt == 'actor'">
+							and a.actor_name like '%' || #{value} || '%'
+						</when>
+					</choose>
+				</if>
+			</where> 
+		)
+		where rn between #{beginIndex} and #{endIndex}
+	</select>
+	
+	<!-- 주성 -->
+	<insert id="insertCustomerMovieWishListByMovieNo" parameterType="com.jhta.moviefan.vo.CustomerMovieWishList">
+		insert into CUSTOMER_MOVIE_WISHLIST
+		(MOVIE_NO, CUSTOMER_NO)
+		values
+		(#{movieNo}, #{customerNo})
+	</insert>
+
+	<select id="getCustomerCinemaFavoritesByCustomerNo" parameterType="int" resultType="com.jhta.moviefan.vo.CustomerCinemaFavorites">
+		select 
+			customer_no as customerNo,
+			cinema_no as cinemaNo
+		from customer_cinema_favorites
+		where customer_no = #{customerNo}
+	</select>
+	
+	<select id="getMyWishList" parameterType="int" resultType="int">
+		select MOVIE_NO
+		from CUSTOMER_MOVIE_WISHLIST
+		where CUSTOMER_NO = #{value}
+	</select>
+	
+	<insert id="insertMyCinema" parameterType="com.jhta.moviefan.vo.CustomerCinemaFavorites">
+		insert into customer_cinema_favorites 
+		(customer_no, cinema_no)
+		values
+		(#{customerNo}, #{cinemaNo})
+	</insert>
+	
+	<delete id="deleteMyCinema" parameterType="com.jhta.moviefan.vo.CustomerCinemaFavorites">
+		delete from customer_cinema_favorites
+		where customer_no = #{customerNo}
+		and cinema_no = #{cinemaNo}
+	</delete>
+	
+	<delete id="deleteCustomerMovieWishListByMovieNo" parameterType="com.jhta.moviefan.vo.CustomerMovieWishList">
+		delete from CUSTOMER_MOVIE_WISHLIST
+		where MOVIE_NO = #{movieNo}
+		and CUSTOMER_NO = #{customerNo}
+	</delete>
+	
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
